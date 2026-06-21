@@ -4,7 +4,7 @@
   inputs = {
     flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    process-compose-flake.url = "github:xtian/process-compose-flake/patch-1";
+    process-compose-flake.url = "github:Platonic-Systems/process-compose-flake/";
     services-flake.url    = "github:juspay/services-flake";
   };
 
