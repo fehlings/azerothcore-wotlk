@@ -47,6 +47,14 @@
               done
             '';
           };
+
+         acEnv = {
+            AC_DATA_DIR                = "${clientData}";
+            AC_LOGIN_DATABASE_INFO     = "127.0.0.1;3306;acore;;acore_auth";
+            AC_WORLD_DATABASE_INFO     = "127.0.0.1;3306;acore;;acore_world";
+            AC_CHARACTER_DATABASE_INFO = "127.0.0.1;3306;acore;;acore_characters";
+            AC_SOURCE_DIRECTORY        = "${src}";
+          };
         in
         {
           packages.default = azerothcore;
@@ -94,31 +102,28 @@
               ];
             };
 
+            settings.processes.dbimport = {
+              command = "${azerothcore}/env/dist/bin/dbimport";
+              environment = acEnv;
+              depends_on."acore-db".condition = "process_healthy";
+              depends_on."acore-db-configure".condition = "process_completed_successfully";
+            };
+
             settings.processes.authserver = {
               command = "${azerothcore}/env/dist/bin/authserver";
               is_tty = true;
-              environment = {
-                AC_DATA_DIR = "${clientData}";
-                AC_LOGIN_DATABASE_INFO = "127.0.0.1;3306;acore;;acore_auth";
-                AC_WORLD_DATABASE_INFO = "127.0.0.1;3306;acore;;acore_world";
-                AC_CHARACTER_DATABASE_INFO = "127.0.0.1;3306;acore;;acore_characters";
-                AC_SOURCE_DIRECTORY = "${src}";
-              };
+              environment = acEnv;
               depends_on."acore-db".condition = "process_healthy";
+              depends_on."dbimport".condition = "process_completed_successfully";
             };
 
             settings.processes.worldserver = {
               command = "${azerothcore}/env/dist/bin/worldserver";
               is_interactive = true;
-              environment = {
-                AC_DATA_DIR = "${clientData}";
-                AC_LOGIN_DATABASE_INFO = "127.0.0.1;3306;acore;;acore_auth";
-                AC_WORLD_DATABASE_INFO = "127.0.0.1;3306;acore;;acore_world";
-                AC_CHARACTER_DATABASE_INFO = "127.0.0.1;3306;acore;;acore_characters";
-                AC_SOURCE_DIRECTORY = "${src}";
-              };
-              depends_on."acore-db".condition   = "process_healthy";
-              depends_on."authserver".condition = "process_started";
+              environment = acEnv;
+              depends_on."acore-db".condition = "process_healthy";
+              depends_on."dbimport".condition = "process_completed_successfully";
+
             };
           };
         };
