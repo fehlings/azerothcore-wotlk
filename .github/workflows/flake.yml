@@ -1,0 +1,78 @@
+name: Nix CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false   # a Darwin failure shouldn't hide the Linux result, or vice versa
+      matrix:
+        include:
+          - os: ubuntu-latest       # x86_64-linux
+          - os: ubuntu-24.04-arm    # aarch64-linux (native GH runner, no QEMU)
+          - os: macos-15-intel      # x86_64-darwin
+          - os: macos-latest        # aarch64-darwin (Apple Silicon)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      # Handles both platforms: daemon-mode install on macOS (APFS volume), flakes
+      # enabled by default. cachix/install-nix-action works too, but on macOS it
+      # requires the daemon-mode install explicitly (single-user isn't supported there).
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      # Free, zero-config binary cache scoped to this repo/workflow. If it breaks again
+      # (it had a multi-month outage in 2025 due to a GH cache-API change), swap for
+      # nix-community/cache-nix-action.
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Evaluate flake (fast — catches Nix-level errors before any compiling)
+        run: nix flake check --no-build -L
+
+      - name: Build the azerothcore package (this is the expensive step: full C++ compile)
+        run: nix build .#default -L
+
+      - name: Validate the process-compose wiring
+        run: nix run .#dev -- --dry-run
+        # --dry-run parses and validates the generated process-compose.yaml without
+        # starting anything — catches a typo'd depends_on target (e.g. a mismatched
+        # "acore-db-configure" process name) for the cost of one instant command.
+        # Confirm `nix run .#dev -- <flag>` actually forwards to the process-compose
+        # binary in your process-compose-flake version before relying on this.
+
+  dev-smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    # Linux only: this exercises the full stack (MySQL + client-data download + dbimport
+    # + authserver/worldserver boot) — not worth paying for on every OS/arch leg.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Start the dev stack headlessly
+        run: |
+          PC_DISABLE_TUI=1 nohup nix run .#dev > dev.log 2>&1 &
+          echo $! > dev.pid
+
+      - name: Wait for authserver to come up
+        run: |
+          for i in $(seq 1 60); do
+            nc -z 127.0.0.1 3724 && exit 0
+            sleep 5
+          done
+          echo "authserver never opened port 3724 within 5 min"
+          cat dev.log
+          exit 1
+
+      - name: Tear down
+        if: always()
+        run: |
+          kill "$(cat dev.pid)" 2>/dev/null || true
+          sleep 2
+          cat dev.log
