@@ -43,6 +43,9 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
+      - name: Build
+        run: nix build .#default -L
+
       - name: Start the dev stack headlessly
         run: |
           PC_DISABLE_TUI=1 nohup nix run .#dev > dev.log 2>&1 &
