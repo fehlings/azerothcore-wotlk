@@ -8,13 +8,13 @@ on:
 jobs:
   build:
     strategy:
-      fail-fast: false   # a Darwin failure shouldn't hide the Linux result, or vice versa
+      fail-fast: false # a Darwin failure shouldn't hide the Linux result, or vice versa
       matrix:
         include:
-          - os: ubuntu-latest       # x86_64-linux
-          - os: ubuntu-24.04-arm    # aarch64-linux (native GH runner, no QEMU)
-          - os: macos-15-intel      # x86_64-darwin
-          - os: macos-latest        # aarch64-darwin (Apple Silicon)
+          - os: ubuntu-latest # x86_64-linux
+          - os: ubuntu-24.04-arm # aarch64-linux (native GH runner, no QEMU)
+          - os: macos-15-intel # x86_64-darwin
+          - os: macos-latest # aarch64-darwin (Apple Silicon)
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
@@ -30,10 +30,10 @@ jobs:
       # nix-community/cache-nix-action.
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: Evaluate flake (fast — catches Nix-level errors before any compiling)
+      - name: Evaluate flake
         run: nix flake check --no-build -L
 
-      - name: Build the azerothcore package (this is the expensive step: full C++ compile)
+      - name: Build the azerothcore package
         run: nix build .#default -L
 
       - name: Validate the process-compose wiring
