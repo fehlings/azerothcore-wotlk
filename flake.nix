@@ -5,33 +5,51 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake/";
-    services-flake.url    = "github:juspay/services-flake";
+    services-flake.url = "github:juspay/services-flake";
   };
 
-  outputs = inputs@{ flake-parts, ... }:
+  outputs =
+    inputs@{ flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         inputs.process-compose-flake.flakeModule
       ];
-      systems =
-        [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
-      perSystem = { config, self', inputs', pkgs, system, ... }:
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "aarch64-darwin"
+      ];
+      perSystem =
+        {
+          pkgs,
+          ...
+        }:
         let
           src = ./.;
 
           clientData = pkgs.fetchzip {
-            url       = "https://github.com/wowgaming/client-data/releases/download/v19/Data.zip";
-            hash      = "sha256-My6ZUYj5dze2rIyqJeOVUbHDUeZSsruiJsRWUDG391g=";
+            url = "https://github.com/wowgaming/client-data/releases/download/v19/Data.zip";
+            hash = "sha256-My6ZUYj5dze2rIyqJeOVUbHDUeZSsruiJsRWUDG391g=";
             stripRoot = false;
           };
 
           azerothcore = pkgs.clangStdenv.mkDerivation {
-            pname   = "azerothcore";
+            pname = "azerothcore";
             version = "unstable";
             inherit src;
 
-            nativeBuildInputs = with pkgs; [ cmake git ];
-            buildInputs = with pkgs; [ boost bzip2 mysql84 openssl readline zlib];
+            nativeBuildInputs = with pkgs; [
+              cmake
+              git
+            ];
+            buildInputs = with pkgs; [
+              boost
+              bzip2
+              mysql84
+              openssl
+              readline
+              zlib
+            ];
 
             cmakeFlags = [
               "-DCMAKE_INSTALL_PREFIX=${placeholder "out"}/env/dist/"
@@ -48,12 +66,12 @@
             '';
           };
 
-         acEnv = {
-            AC_DATA_DIR                = "${clientData}";
-            AC_LOGIN_DATABASE_INFO     = "127.0.0.1;3306;acore;;acore_auth";
-            AC_WORLD_DATABASE_INFO     = "127.0.0.1;3306;acore;;acore_world";
+          acEnv = {
+            AC_DATA_DIR = "${clientData}";
+            AC_LOGIN_DATABASE_INFO = "127.0.0.1;3306;acore;;acore_auth";
+            AC_WORLD_DATABASE_INFO = "127.0.0.1;3306;acore;;acore_world";
             AC_CHARACTER_DATABASE_INFO = "127.0.0.1;3306;acore;;acore_characters";
-            AC_SOURCE_DIRECTORY        = "${src}";
+            AC_SOURCE_DIRECTORY = "${src}";
           };
         in
         {
@@ -61,6 +79,7 @@
 
           devShells.default = pkgs.mkShell.override { stdenv = pkgs.clangStdenv; } {
             nativeBuildInputs = with pkgs; [
+              git
               cmake
             ];
             buildInputs = with pkgs; [
@@ -80,9 +99,9 @@
             ];
 
             services.mysql."acore-db" = {
-              enable    = true;
-              package   = pkgs.mysql84;
-              dataDir   = "./.mysql";
+              enable = true;
+              package = pkgs.mysql84;
+              dataDir = "./.mysql";
 
               initialDatabases = [
                 { name = "acore_world"; }
@@ -91,14 +110,14 @@
               ];
 
               ensureUsers = [
-                  {
-                    name     = "acore";
-                    ensurePermissions = {
-                      "acore_world.*"      = "ALL PRIVILEGES";
-                      "acore_characters.*" = "ALL PRIVILEGES";
-                      "acore_auth.*"       = "ALL PRIVILEGES";
-                    };
-                  }
+                {
+                  name = "acore";
+                  ensurePermissions = {
+                    "acore_world.*" = "ALL PRIVILEGES";
+                    "acore_characters.*" = "ALL PRIVILEGES";
+                    "acore_auth.*" = "ALL PRIVILEGES";
+                  };
+                }
               ];
             };
 
